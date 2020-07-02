@@ -67,12 +67,19 @@ def main():
             resultNames.extend(names)
             resultVectors.extend([v.tolist() for v in vectorsProjNorm.cpu()])
 
-    with open(os.path.expandvars(r'${DEV_OUT_PATH}/cats.json'), 'w') as file:
+    with open(os.path.expandvars(r'${DEV_METAPHOR_DATA_PATH}/cats-10k.json'), 'w') as file:
         json.dump({
             'names': resultNames,
             'vectors': resultVectors,
             'timestamp': time.time()
         }, file)
+
+    outImageDir = os.path.expandvars(r'${DEV_METAPHOR_DATA_PATH}/cats')
+    if not os.path.exists(outImageDir):
+        os.makedirs(outImageDir)
+    for name in resultNames:
+        imagePath = os.path.join(config['dataset']['data_path'], name)
+        shutil.copy(imagePath, os.path.join(outImageDir, name))
 
 
 if __name__ == '__main__':
