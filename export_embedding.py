@@ -11,7 +11,7 @@ import torch.utils.data
 import torchvision
 import yaml
 
-from data_aug.dataset_wrapper import CatDataset
+from data_aug.data_loading import CatDataset
 from models.resnet_simclr import ResNetSimCLR
 
 

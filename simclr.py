@@ -1,7 +1,11 @@
+from datetime import datetime
+
 import torch
+from torch.utils.data.dataloader import DataLoader
+
 from models.resnet_simclr import ResNetSimCLR
-from torch.utils.tensorboard import SummaryWriter
 import torch.nn.functional as F
+import torch.utils.data
 from loss.nt_xent import NTXentLoss
 import os
 import shutil
@@ -30,16 +34,20 @@ def _save_config_file(model_checkpoints_folder):
 
 class SimCLR(object):
 
-    def __init__(self, dataset, config):
+    def __init__(self, dataLoaderTrain: DataLoader, dataLoaderVal: DataLoader, config):
         self.config = config
+        self.dataLoaderTrain = dataLoaderTrain
+        self.dataLoaderVal = dataLoaderVal
+
         self.device = self._get_device()
-        self.writer = SummaryWriter()
-        self.dataset = dataset
+        todayStr = datetime.today().strftime('%Y_%m_%d_%H_%M_%S')
+        self.outDirPath = os.path.join(self.config['out_dir_path'], todayStr)
+
         self.nt_xent_criterion = NTXentLoss(self.device, config['batch_size'], **config['loss'])
 
     def train(self):
 
-        train_loader, valid_loader = self.dataset.get_data_loaders()
+        train_loader, valid_loader = self.dataLoaderTrain, self.dataLoaderVal
 
         model = ResNetSimCLR(**self.config["model"]).to(self.device)
         model = self._load_pre_trained_weights(model)
@@ -54,7 +62,7 @@ class SimCLR(object):
                                               opt_level='O2',
                                               keep_batchnorm_fp32=True)
 
-        model_checkpoints_folder = os.path.join(self.writer.log_dir, 'checkpoints')
+        model_checkpoints_folder = os.path.join(self.outDirPath, 'checkpoints')
 
         # save config file
         _save_config_file(model_checkpoints_folder)
@@ -74,7 +82,6 @@ class SimCLR(object):
                 loss, _ = self._step(model, xis, xjs)
 
                 if n_iter % self.config['log_every_n_steps'] == 0:
-                    self.writer.add_scalar('train_loss', loss, global_step=n_iter)
                     print(f"Batch loss: {loss}")
 
                 if apex_support and self.config['fp16_precision']:
@@ -95,14 +102,11 @@ class SimCLR(object):
                     torch.save(model.state_dict(), os.path.join(model_checkpoints_folder, 'model.pth'))
 
                 print(f"Val loss: {valid_loss}")
-                self.writer.add_scalar('validation_loss', valid_loss, global_step=valid_n_iter)
                 valid_n_iter += 1
 
             # warmup for the first 10 epochs
             if epoch_counter >= 10:
                 scheduler.step()
-            self.writer.add_scalar('cosine_lr_decay', scheduler.get_lr()[0], global_step=n_iter)
-
 
 
     def _get_device(self):

@@ -1,3 +1,4 @@
+out_dir_path: "E:\\out\\simclr"
 batch_size: 128
 epochs: 80
 eval_every_n_epochs: 1
